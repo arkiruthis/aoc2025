@@ -51,7 +51,22 @@ int main(int argc, char *argv[])
         char minCharLS = '1';
         char minCharRS = '1';
 
-        for (int i = str.length() - 1; i >= 0; --i)
+        // We have to start from the second-last character
+        // but keep going over similar high values to get
+        // as far left as possible.
+        for (int i = str.length() - 2; i >= 0; --i)
+        {
+            // Due to ascii layout, they do run in sequence
+            if (str[i] >= minCharLS)
+            {
+                minCharLS = str[i];
+                minIdxLeftSweep = i;
+            }
+        }
+
+        // We now need to sweep in the other direction, but skip if we encounter the excluded value
+        minIdxRightSweep = minIdxLeftSweep + 1;
+        for (int i = minIdxLeftSweep + 1; i < str.length(); ++i)
         {
             // Due to ascii layout, they do run in sequence
             if (str[i] >= minCharRS)
@@ -61,43 +76,7 @@ int main(int argc, char *argv[])
             }
         }
 
-        // We now need to sweep in the other direction, but skip if we encounter the excluded value
-        for (int i = 0; i < str.length(); ++i)
-        {
-            // Due to ascii layout, they do run in sequence
-            if (i != minIdxRightSweep && str[i] > minCharLS)
-            {
-                minCharLS = str[i];
-                minIdxLeftSweep = i;
-            }
-        }
-
-        // Now, we just need to see if we crossed paths
-        if (minIdxLeftSweep > minIdxRightSweep)
-        {
-            swap(minIdxLeftSweep, minIdxRightSweep);
-            swap(minCharLS, minCharRS);
-        }
-
-        if (minCharLS < minCharRS && minCharRS < (str.length() - 2))
-        {
-            minCharLS = str[minIdxRightSweep + 1];
-            for (int i = minIdxRightSweep + 1; i < str.length(); ++i)
-            {
-                if (str[i] >= minCharLS) {
-                    minCharLS = str[i];
-                    minIdxLeftSweep = i;
-                }
-            }
-
-            swap(minIdxLeftSweep, minIdxRightSweep);
-            swap(minCharLS, minCharRS);
-        }
-
-        // We have another curiosity, if lC < rC we need another sweep
-
-        const auto strVal = string(1, minCharLS).append(string(1, minCharRS));
-        
+        const auto strVal = string(1, minCharLS).append(string(1, minCharRS));        
         prettyPrintBank(str, {minIdxLeftSweep, minIdxRightSweep});
 
         int combination = stoi(strVal);
