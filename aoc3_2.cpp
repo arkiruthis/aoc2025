@@ -69,33 +69,38 @@ int main(int argc, char *argv[])
         // We now have a guaranteed substring that we need to whittle down to 12
         // ensuring the largest possible are on the left.
 
-        string subStr = str.substr(minIdxLeftSweep);
-        char minFound = '1';
-        while (subStr.length() > 12 )
+        auto whittleDownTo12 = [](const string &str)
         {
-            printf("Looking for %c in %s\n", minFound, subStr.c_str());
-            vector<int> foundIndices;
-            for (int i = 0; i < subStr.length(); ++i)
+            constexpr int BANK_SIZE = 12;
+            int numRemovable = str.length() - BANK_SIZE;
+            string result;
+            result.reserve(str.length());
+
+            // Go through the original string and if the back element
+            // of our result is less than the current character then
+            // pop it off! We push the next character on regardless. 
+            for (char c : str)
             {
-                if (subStr[i] == minFound)
+                while (!result.empty() && (numRemovable > 0) && (result.back() < c))
                 {
-                    foundIndices.push_back(i);
+                    result.pop_back();
+                    --numRemovable;
                 }
+                result.push_back(c);
             }
 
-            printf("found %d instances of %c\n", foundIndices.size(), minFound);
-
-            while (!foundIndices.empty() && subStr.length() > 12) 
+            // We might still be over the limit, so we can trim off the excess.
+            if ((int)result.size() > BANK_SIZE)
             {
-                subStr.erase(foundIndices.back(), 1);
-                foundIndices.pop_back();
+                result.resize(BANK_SIZE);
             }
+            return result;
+        };
 
-            minFound++;
-            if (minFound > '9') break;
-            printf("Current subStr [ %s ]\n", subStr.c_str());
-        }
-        
+        string subStr = str.substr(minIdxLeftSweep);
+        subStr = whittleDownTo12(subStr);
+        printf("Max 12 digit: %s\n", subStr.c_str());
+
         tally += stoull(subStr);
     }
 
