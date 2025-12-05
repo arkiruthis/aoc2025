@@ -39,65 +39,42 @@ int main(int argc, char *argv[])
     in_file.close();
 
     uint64_t count = 0, iterations = 0;
-    bool merge_required = false;
 
-    while (!merge_required)
+    std::sort(begin(ranges), end(ranges), [](const auto &a, const auto &b) {
+        return a.first < b.first;
+    });
+
+    // Merge together
+    for (auto it = begin(ranges); it != end(ranges); ++it)
     {
-        merge_required = false;
-        for (auto it = cbegin(ranges); it != cend(ranges); ++it)
+        if (merged_ranges.empty())
         {
-            bool was_merged_in_this_iteration = false;
-            for (auto it2 = cbegin(ranges); it2 != cend(ranges); ++it2)
+            merged_ranges.push_back(*it);
+        }
+        else
+        {
+            auto &last = merged_ranges.back();
+            if (it->first <= last.second + 1)
             {
-                if (it == it2)
-                    continue; // Self comparison
-
-                auto a = (*it);
-                auto b = (*it2);
-
-                if (b.first <= a.second && b.first >= a.first)
+                // Overlap or contiguous, merge
+                if (it->second > last.second)
                 {
-                    // Merging LR
-                    merged_ranges.push_back({a.first, b.second});
-                    printf("LR: [%llu-%llu] from [%llu-%llu][%llu-%llu]\n", a.first, b.second, a.first, a.second, b.first, b.second);
-                    was_merged_in_this_iteration = true;
+                    last.second = it->second;
                 }
-                else if (a.first <= b.second && a.first >= b.first)
-                {
-                    // Merging RL
-                    merged_ranges.push_back({b.first, a.second});
-                    printf("RL: [%llu-%llu] from [%llu-%llu][%llu-%llu]\n", b.first, a.second, a.first, a.second, b.first, b.second);
-                    was_merged_in_this_iteration = true;
-                }
-            }
-
-            if (was_merged_in_this_iteration)
-            {
-                printf("Merging!!\n");
-                merge_required = true;
             }
             else
             {
-                // Keep it in the new bucket
+                // No overlap, add new range
                 merged_ranges.push_back(*it);
             }
         }
-
-        if (merge_required)
-        {
-            // Overwrite original ranges
-            ranges = merged_ranges;
-        }
-
-        ++iterations;
-        printf("Have completed (%llu) iterations so far...\n", iterations);
     }
 
     // Now we just get the ranges (inclusive) and add them. :) 
     // [ 2-4 ] = (4 - 2) + 1, aka, {2, 3, 4}
-    for (auto &r : ranges) {
+    for (auto &r : merged_ranges) {
         assert(r.second >= r.first);
-        count += (r.second - r.first);
+        count += (r.second - r.first) + 1;
     }
 
     printf("%llu ingredients are fresh.\n", count);
