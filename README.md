@@ -9,9 +9,11 @@ This project is written in **C++**.
 To build and run a solution (e.g., Day 1):
 
 ```bash
-g++ -std=c++20 aoc1.cpp -o aoc1
-./aoc1
+./compile.sh aoc1.cpp
+./main
 ```
+
+The `compile.sh` script compiles any C++ source file to `./main` using C++20 standard.
 
 ## License
 
