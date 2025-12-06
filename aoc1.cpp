@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
     int idx = 50;
     size_t zero_count = 0;
 
-    in_file.open("assets/combinations.txt");
+    in_file.open("assets/aoc1.txt");
     if (!in_file.good())
     {
         printf("Unable to read input file.");
