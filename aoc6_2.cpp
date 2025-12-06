@@ -14,24 +14,6 @@ typedef struct Op
     int64_t val[4];
     char op;
 
-    void Populate()
-    {
-        // I guess we iterate down and shift stuff base10 if it's not a space? :/
-        // The data seems to be only + and * which is commutative(spl??) so order does't matter, just value?
-        // printf("%d\n", swizzle.length());
-        assert(swizzle.length() == 16);
-        for (int i = 0; i < 4; ++i) { // across 4 words
-            for (int j = 0; j < 4; ++j) { // Starting at index 0 of word
-                int n = 0;
-                char c = swizzle[(j * 4) + i];
-                if (c != ' ')
-                    n = c - '0'; // This will pull 0-9 down from ASCII position to origin
-                
-                val[i] += n * pow(10, 3 - j); // Big endian when reading >___<
-            }
-        }
-    }
-
     int64_t Process() const
     {
         switch (op)
@@ -48,8 +30,7 @@ typedef struct Op
                                 // Horrible, HORRIBLE hack to get this working... ;___;
                                 if (a == 0) return b;
                                 if (b == 0) return a;
-                                return a * b; 
-                            });
+                                return a * b; });
         default:
             return 0;
         }
@@ -60,7 +41,6 @@ int main(int argc, char *argv[])
 {
     ifstream in_file;
     vector<Op> problems;
-    int idx = 50;
     int64_t problem_count = 0;
 
     in_file.open("assets/aoc6.txt");
@@ -71,58 +51,70 @@ int main(int argc, char *argv[])
     }
 
     string line;
-    size_t pass = 0;
-    const size_t op_pass = 4;
+    vector<string> cache;
     while (getline(in_file, line))
     {
         if (!line.empty())
         {
-            // Optimize this. This is not great.
-            stringstream ss(line);
-            string tmp;
-            size_t idx = 0;
-
-            if (pass < op_pass) // Numbers
-            {
-                const auto pad = [](string &s)
-                {
-                    return s + string(4 - s.size(), ' ');
-                };
-
-                while (ss >> tmp)
-                {
-                    switch (pass)
-                    {
-                    case 0: // populate
-                        problems.push_back({pad(tmp), {}, 0});
-                        break;
-                    default:
-                        assert(idx < problems.size());
-                        problems[idx].swizzle += pad(tmp);
-                        break;
-                    };
-                    ++idx;
-                }
-            }
-            else if (pass == op_pass)
-            {
-                
-                while (ss >> tmp)
-                {
-                    printf("%s\n", problems[idx].swizzle.c_str());
-                    assert(idx < problems.size());
-                    problems[idx].op = tmp[0];
-                    ++idx;
-                }
-
-            }
+            cache.push_back(line);
         }
-        ++pass;
     }
     in_file.close();
 
-    // Phew, now Populate our vals from the string cache
-    for_each(begin(problems), end(problems), mem_fn(&Op::Populate));
+    bool commitCurrentOp = false;
+    size_t idx = 0;
+    Op currentOp{};
+    for (int i = 0; i <= cache[0].length(); ++i)
+    {
+        string vertical;
+
+        if (i == cache[0].length()) // The last column won't be spaces ;____;
+        {
+            commitCurrentOp = true;
+        }
+
+        if (!commitCurrentOp)
+        {
+            for (int j = 0; j < cache.size(); ++j)
+            {
+                vertical.push_back(cache[j][i]);
+            }
+
+            bool ws = std::all_of(vertical.begin(), vertical.end(),
+                                  [](unsigned char c)
+                                  { return std::isspace(c); });
+
+            if (ws) // End of block
+            {
+                idx = 0;
+                commitCurrentOp = true;
+            }
+            else
+            {
+                // We have an operation, and the start of a new section
+                if (vertical.back() != ' ')
+                {
+                    currentOp.op = vertical.back();
+                }
+                
+                string val = vertical.substr(0, 4);
+                try {
+                    currentOp.val[idx] = stoi(val);
+                }
+                catch(exception &e) {
+                    currentOp.val[idx] = 0;
+                }
+                ++idx;
+            }
+        }
+
+        if (commitCurrentOp)
+        {
+            commitCurrentOp = false;
+            problems.push_back(currentOp);
+            currentOp = {};
+        }
+    }
 
     for (const auto &p : problems)
     {
