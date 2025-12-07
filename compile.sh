@@ -12,7 +12,7 @@ if [ ! -f "$SOURCE_FILE" ]; then
     exit 1
 fi
 
-g++ -std=c++20 "$SOURCE_FILE" -o ./main
+g++ -std=c++20 -O3 -Wall "$SOURCE_FILE" -o ./main
 
 if [ $? -eq 0 ]; then
     echo "Successfully compiled $SOURCE_FILE to ./main"
