@@ -109,5 +109,24 @@ int main(int argc, char *argv[])
         printf("Box %zu <--> Box %zu : Dist^2 = %.2f\n", conn.boxID1, conn.boxID2, conn.distance);
     }
 
+    vector<size_t> circuit;
+    circuit.push_back(boxPositions[0].id);
+    for (auto &c : dists) {
+        if (find(circuit.begin(), circuit.end(), c.boxID1) != circuit.end()) {
+            // Found a candidate to connect
+            printf("Pushing box %zu to circuit\n", c.boxID2);
+            circuit.push_back(c.boxID2);
+        } else if (find(circuit.begin(), circuit.end(), c.boxID2) != circuit.end()) {
+            // Found a candidate to connect
+            printf("Pushing box %zu to circuit\n", c.boxID1);
+            circuit.push_back(c.boxID1);
+        }
+    }
+
+    printf("Circuit order:\n");
+    for (const auto &cid : circuit) {
+        printf("Box %zu\n", cid);
+    }
+
     return 0;
 }
