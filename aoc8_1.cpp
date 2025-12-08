@@ -3,6 +3,7 @@
 #include <fstream>
 #include <string>
 #include <list>
+#include <algorithm>
 
 using namespace std;
 
@@ -54,11 +55,11 @@ int main(int argc, char *argv[])
             auto end = line.find_last_of(',');
 
             boxPositions.push_back({
-                x : stof(line.substr(0, start)),
-                y : stof(line.substr(start + 1, end)),
-                z : stof(line.substr(end + 1)),
-                id : idx,
-                connected : false
+                .x = stof(line.substr(0, start)),
+                .y = stof(line.substr(start + 1, end)),
+                .z = stof(line.substr(end + 1)),
+                .id = idx,
+                .connected = false
             });
         }
         ++idx;
@@ -84,7 +85,7 @@ int main(int argc, char *argv[])
 
         if (nearest != end(boxPositions)) // && !nearest->connected)
         {
-            dists.push_back({v.id, nearest->id, distSquared(v, *nearest)});
+            dists.push_back({.boxID1 = v.id, .boxID2 = nearest->id, .distance = distSquared(v, *nearest)});
             printf("Box %zu nearest to box %zu\n", v.id, nearest->id);
         }
     }
