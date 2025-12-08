@@ -1,10 +1,10 @@
-#include <cstdio>
-#include <vector>
-#include <fstream>
-#include <string>
-#include <list>
 #include <algorithm>
+#include <cstdio>
+#include <fstream>
+#include <list>
 #include <set>
+#include <string>
+#include <vector>
 
 using namespace std;
 
@@ -16,9 +16,11 @@ typedef struct V3D
     size_t id;
     bool connected = false;
 
+    bool operator<(const V3D &other) const { return id < other.id; }
+
     string toString() const
     {
-        return "V3D(" + to_string(x) + ", " + to_string(y) + ", " + to_string(z) + ")";
+        return "V3D(" + to_string((int)x) + ", " + to_string((int)y) + ", " + to_string((int)z) + ")";
     }
 } V3D;
 
@@ -29,10 +31,7 @@ public:
     V3D boxB;
     float distance;
 
-    bool operator<(const BoxConnection &other) const
-    {
-        return distance < other.distance;
-    }
+    bool operator<(const BoxConnection &other) const { return distance < other.distance; }
 
     bool operator==(const BoxConnection &other)
     {
@@ -44,16 +43,13 @@ public:
 // We don't need the ACTUAL distance here, just relative
 float distSquared(const V3D &a, const V3D &b)
 {
-    return (b.x - a.x) * (b.x - a.x) +
-           (b.y - a.y) * (b.y - a.y) +
-           (b.z - a.z) * (b.z - a.z);
+    return (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z);
 }
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
     ifstream in_file;
     vector<V3D> boxPositions;
-    vector<V3D> circuits;
 
     in_file.open("assets/aoc8_example.txt");
     if (!in_file.good())
@@ -70,108 +66,93 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
         if (!line.empty())
         {
             auto start = line.find_first_of(',');
-            auto end = line.find_last_of(',');
+            auto end   = line.find_last_of(',');
 
-            boxPositions.push_back({.x = stof(line.substr(0, start)),
-                                    .y = stof(line.substr(start + 1, end)),
-                                    .z = stof(line.substr(end + 1)),
-                                    .id = idx,
-                                    .connected = false});
+            boxPositions.push_back({ .x         = stof(line.substr(0, start)),
+                                     .y         = stof(line.substr(start + 1, end)),
+                                     .z         = stof(line.substr(end + 1)),
+                                     .id        = idx,
+                                     .connected = false });
         }
         ++idx;
     }
     in_file.close();
 
     // Create a container of sorted pairs by lowest distance
-    auto getPairsSortedByDistance = [](const vector<V3D> &boxes)
-    {
+    auto getPairsSortedByDistance = [](const vector<V3D> &boxes) {
         set<BoxConnection> pairs;
         for (auto i = 0; i < boxes.size(); ++i)
         {
             const auto &v = boxes[i];
-            auto nearest = min_element(cbegin(boxes), cend(boxes),
-                                       [&v](const auto &a, const auto &b)
-                                       {
-                                           // Skip comparing with self
-                                           float distA = (&a == &v) ? INFINITY : distSquared(v, a);
-                                           float distB = (&b == &v) ? INFINITY : distSquared(v, b);
-                                           return distA < distB;
-                                       });
+            auto nearest  = min_element(cbegin(boxes), cend(boxes), [&v](const auto &a, const auto &b) {
+                // Skip comparing with self
+                float distA = (&a == &v) ? INFINITY : distSquared(v, a);
+                float distB = (&b == &v) ? INFINITY : distSquared(v, b);
+                return distA < distB;
+            });
 
             if (nearest != cend(boxes))
             {
-                pairs.insert({.boxA = v, .boxB = *nearest, .distance = distSquared(v, *nearest)});
+                pairs.insert({ .boxA = v, .boxB = *nearest, .distance = distSquared(v, *nearest) });
             }
         }
         return pairs;
     };
 
-    set<BoxConnection> pairsByDistance = getPairsSortedByDistance(boxPositions);
+    auto printCircuit = [](const set<V3D> &circuit) {
+        printf("Circuit size: %zu\n", circuit.size());
 
-    printf("Connections by closest distance:\n");
-    for (const auto &conn : pairsByDistance)
-    {
-        printf("Box %zu <--> Box %zu : Dist^2 = %.2f\n", conn.boxA.id, conn.boxB.id, conn.distance);
-    }
-
-    auto circuitFromConnections = [](const set<BoxConnection> &connections)
-    {
-        vector<size_t> circuit;
-        circuit.push_back(connections.begin()->boxA.id);
-
-        for (const auto &conn : connections)
+        for (const auto &box : circuit)
         {
-            if (find(circuit.begin(), circuit.end(), conn.boxA.id) != circuit.end())
-            {
-                // Found a candidate to connect
-                printf("Pushing box %s to circuit\n", conn.boxB.toString().c_str());
-                circuit.push_back(conn.boxB.id);
-            }
-            else if (find(circuit.begin(), circuit.end(), conn.boxB.id) != circuit.end())
-            {
-                // Found a candidate to connect
-                printf("Pushing box %s to circuit\n", conn.boxA.toString().c_str());
-                circuit.push_back(conn.boxA.id);
-            }
+            printf("%s\n", box.toString().c_str());
         }
-        return circuit;
     };
 
-    vector<size_t> circuit = circuitFromConnections(pairsByDistance);
+    set<BoxConnection> pairsByDistance = getPairsSortedByDistance(boxPositions);
 
-    printf("Circuit size: %zu\n", circuit.size());
-    // printf("Circuit order:\n");
-    // for (const auto &cid : circuit)
-    // {
-    //     printf("Box %zu\n", cid);
-    // }
+    auto circuitFromConnections = [](set<BoxConnection> &connections) {
+        // Start circuit with first connection
+        vector<set<V3D>> circuits = {{ connections.begin()->boxA, connections.begin()->boxB }};
 
-    // Remove all ids in circuit from boxPositions
-    for (const auto &cid : circuit)
-    {
-        boxPositions.erase(remove_if(boxPositions.begin(), boxPositions.end(),
-                                     [cid](const V3D &v)
-                                     { return v.id == cid; }),
-                           boxPositions.end());
+        const set<BoxConnection> initialConnections = connections;
+
+        // We'll look for other connections to add to the circuit
+        for (const auto &conn : initialConnections)
+        {
+            bool found = false;
+
+            for (auto &circuit : circuits)
+            {
+                if (find_if(circuit.begin(), circuit.end(), [&](const V3D& v) { return v.id == conn.boxA.id; }) != circuit.end())
+                {
+                    // Found a candidate to connect
+                    circuit.insert(conn.boxB);
+                    found = true;
+                }
+                else if (find_if(circuit.begin(), circuit.end(), [&](const V3D& v) { return v.id == conn.boxB.id; }) != circuit.end())
+                {
+                    // Found a candidate to connect
+                    circuit.insert(conn.boxA);
+                    found = true;
+                }
+            }
+
+            if (!found)
+            {
+                // No existing circuit found, create a new one
+                circuits.push_back({ conn.boxA, conn.boxB });
+            }
+        }
+
+        return circuits;
+    };
+
+    vector<set<V3D>> circuits = circuitFromConnections(pairsByDistance);
+    for (const auto& circuit : circuits) {
+        printCircuit(circuit);
+        printf("\n");
     }
 
-    // Print remaining boxes
-    printf("Remaining boxes:\n");
-    for (const auto &box : boxPositions)
-    {
-        printf("Box %zu at (%.2f, %.2f, %.2f)\n", box.id, box.x, box.y, box.z);
-    }
-
-    pairsByDistance = getPairsSortedByDistance(boxPositions);
-
-    printf("Connections by closest distance:\n");
-    for (const auto &conn : pairsByDistance)
-    {
-        printf("Box %zu <--> Box %zu : Dist^2 = %.2f\n", conn.boxA.id, conn.boxB.id, conn.distance);
-    }
-
-    circuit = circuitFromConnections(pairsByDistance);
-    printf("Circuit size: %zu\n", circuit.size());
 
     return 0;
 }
