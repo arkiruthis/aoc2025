@@ -110,7 +110,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     ifstream in_file;
     vector<V3D> boxPositions;
 
-    in_file.open("assets/aoc8_example.txt");
+    in_file.open("assets/aoc8.txt");
     if (!in_file.good())
     {
         printf("Unable to read input file.");
@@ -151,7 +151,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     // Make connections using the flippin' Union-Find
     UnionFind uf(boxPositions.size());
     int connectionsAttempted    = 0;
-    const int targetConnections = 10;
+    const int targetConnections = 1000;
 
     for (const auto &pair : pairs)
     {
