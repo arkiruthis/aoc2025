@@ -1,8 +1,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <fstream>
-#include <list>
-#include <set>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -14,7 +13,6 @@ typedef struct V3D
     float y;
     float z;
     size_t id;
-    bool connected = false;
 
     bool operator<(const V3D &other) const { return id < other.id; }
 
@@ -27,17 +25,11 @@ typedef struct V3D
 class BoxConnection
 {
 public:
-    V3D boxA;
-    V3D boxB;
+    size_t boxAId;
+    size_t boxBId;
     float distance;
 
     bool operator<(const BoxConnection &other) const { return distance < other.distance; }
-
-    bool operator==(const BoxConnection &other)
-    {
-        return (boxA.id == other.boxA.id && boxB.id == other.boxB.id) ||
-               (boxA.id == other.boxB.id && boxB.id == other.boxA.id);
-    }
 };
 
 // We don't need the ACTUAL distance here, just relative
@@ -45,6 +37,73 @@ float distSquared(const V3D &a, const V3D &b)
 {
     return (b.x - a.x) * (b.x - a.x) + (b.y - a.y) * (b.y - a.y) + (b.z - a.z) * (b.z - a.z);
 }
+
+// Union-Find data structure
+// https://en.wikipedia.org/wiki/Disjoint-set_data_structure
+// Honestly, unless you're an academic, I have no idea how you'd know this.
+class UnionFind
+{
+private:
+    vector<size_t> parent;
+    vector<size_t> rank;
+
+public:
+    UnionFind(size_t n)
+    {
+        parent.resize(n);
+        rank.resize(n, 0);
+        for (size_t i = 0; i < n; ++i)
+        {
+            parent[i] = i;
+        }
+    }
+
+    size_t find(size_t x)
+    {
+        if (parent[x] != x)
+        {
+            parent[x] = find(parent[x]); // Path compression
+        }
+        return parent[x];
+    }
+
+    bool unite(size_t x, size_t y)
+    {
+        size_t rootX = find(x);
+        size_t rootY = find(y);
+
+        if (rootX == rootY)
+        {
+            return false; // Already in same set
+        }
+
+        // Union by rank
+        if (rank[rootX] < rank[rootY])
+        {
+            parent[rootX] = rootY;
+        }
+        else if (rank[rootX] > rank[rootY])
+        {
+            parent[rootY] = rootX;
+        }
+        else
+        {
+            parent[rootY] = rootX;
+            rank[rootX]++;
+        }
+        return true;
+    }
+
+    map<size_t, size_t> getCircuitSizes()
+    {
+        map<size_t, size_t> sizes;
+        for (size_t i = 0; i < parent.size(); ++i)
+        {
+            sizes[find(i)]++;
+        }
+        return sizes;
+    }
+};
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
@@ -68,91 +127,56 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
             auto start = line.find_first_of(',');
             auto end   = line.find_last_of(',');
 
-            boxPositions.push_back({ .x         = stof(line.substr(0, start)),
-                                     .y         = stof(line.substr(start + 1, end)),
-                                     .z         = stof(line.substr(end + 1)),
-                                     .id        = idx,
-                                     .connected = false });
+            boxPositions.push_back({ .x  = stof(line.substr(0, start)),
+                                     .y  = stof(line.substr(start + 1, end)),
+                                     .z  = stof(line.substr(end + 1)),
+                                     .id = idx });
         }
         ++idx;
     }
     in_file.close();
 
     // Create a container of sorted pairs by lowest distance
-    auto getPairsSortedByDistance = [](const vector<V3D> &boxes) {
-        set<BoxConnection> pairs;
-        for (auto i = 0; i < boxes.size(); ++i)
+    vector<BoxConnection> pairs;
+    for (size_t i = 0; i < boxPositions.size(); ++i)
+    {
+        for (size_t j = i + 1; j < boxPositions.size(); ++j)
         {
-            const auto &v = boxes[i];
-            auto nearest  = min_element(cbegin(boxes), cend(boxes), [&v](const auto &a, const auto &b) {
-                // Skip comparing with self
-                float distA = (&a == &v) ? INFINITY : distSquared(v, a);
-                float distB = (&b == &v) ? INFINITY : distSquared(v, b);
-                return distA < distB;
-            });
-
-            if (nearest != cend(boxes))
-            {
-                pairs.insert({ .boxA = v, .boxB = *nearest, .distance = distSquared(v, *nearest) });
-            }
+            pairs.push_back({ .boxAId = i, .boxBId = j, .distance = distSquared(boxPositions[i], boxPositions[j]) });
         }
-        return pairs;
-    };
-
-    auto printCircuit = [](const set<V3D> &circuit) {
-        printf("Circuit size: %zu\n", circuit.size());
-
-        for (const auto &box : circuit)
-        {
-            printf("%s\n", box.toString().c_str());
-        }
-    };
-
-    set<BoxConnection> pairsByDistance = getPairsSortedByDistance(boxPositions);
-
-    auto circuitFromConnections = [](set<BoxConnection> &connections) {
-        // Start circuit with first connection
-        vector<set<V3D>> circuits = {{ connections.begin()->boxA, connections.begin()->boxB }};
-
-        const set<BoxConnection> initialConnections = connections;
-
-        // We'll look for other connections to add to the circuit
-        for (const auto &conn : initialConnections)
-        {
-            bool found = false;
-
-            for (auto &circuit : circuits)
-            {
-                if (find_if(circuit.begin(), circuit.end(), [&](const V3D& v) { return v.id == conn.boxA.id; }) != circuit.end())
-                {
-                    // Found a candidate to connect
-                    circuit.insert(conn.boxB);
-                    found = true;
-                }
-                else if (find_if(circuit.begin(), circuit.end(), [&](const V3D& v) { return v.id == conn.boxB.id; }) != circuit.end())
-                {
-                    // Found a candidate to connect
-                    circuit.insert(conn.boxA);
-                    found = true;
-                }
-            }
-
-            if (!found)
-            {
-                // No existing circuit found, create a new one
-                circuits.push_back({ conn.boxA, conn.boxB });
-            }
-        }
-
-        return circuits;
-    };
-
-    vector<set<V3D>> circuits = circuitFromConnections(pairsByDistance);
-    for (const auto& circuit : circuits) {
-        printCircuit(circuit);
-        printf("\n");
     }
 
+    sort(pairs.begin(), pairs.end()); // Back to vectors. Yee-haa...
+
+    // Make connections using the flippin' Union-Find
+    UnionFind uf(boxPositions.size());
+    int connectionsAttempted    = 0;
+    const int targetConnections = 10;
+
+    for (const auto &pair : pairs)
+    {
+        uf.unite(pair.boxAId, pair.boxBId);
+        connectionsAttempted++;
+        if (connectionsAttempted >= targetConnections)
+        {
+            break;
+        }
+    }
+
+    // Get circuit sizes
+    auto circuitSizes = uf.getCircuitSizes();
+    vector<size_t> sizes;
+    for (const auto &[root, size] : circuitSizes)
+    {
+        sizes.push_back(size);
+    }
+
+    sort(sizes.rbegin(), sizes.rend()); // Largest first
+
+    printf("Made %d connection attempts\n", connectionsAttempted);
+    printf("Number of circuits: %zu\n", circuitSizes.size());
+    printf("Three largest circuits: %zu, %zu, %zu\n", sizes[0], sizes[1], sizes[2]);
+    printf("Product: %zu\n", sizes[0] * sizes[1] * sizes[2]);
 
     return 0;
 }
