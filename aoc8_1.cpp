@@ -15,13 +15,18 @@ typedef struct V3D
     float z;
     size_t id;
     bool connected = false;
+
+    string toString() const
+    {
+        return "V3D(" + to_string(x) + ", " + to_string(y) + ", " + to_string(z) + ")";
+    }
 } V3D;
 
 class BoxConnection
 {
 public:
-    size_t boxID1;
-    size_t boxID2;
+    V3D boxA;
+    V3D boxB;
     float distance;
 
     bool operator<(const BoxConnection &other) const
@@ -31,8 +36,8 @@ public:
 
     bool operator==(const BoxConnection &other)
     {
-        return (boxID1 == other.boxID1 && boxID2 == other.boxID2) ||
-               (boxID1 == other.boxID2 && boxID2 == other.boxID1);
+        return (boxA.id == other.boxA.id && boxB.id == other.boxB.id) ||
+               (boxA.id == other.boxB.id && boxB.id == other.boxA.id);
     }
 };
 
@@ -44,7 +49,7 @@ float distSquared(const V3D &a, const V3D &b)
            (b.z - a.z) * (b.z - a.z);
 }
 
-int main(int argc, char *argv[])
+int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
     ifstream in_file;
     vector<V3D> boxPositions;
@@ -95,7 +100,7 @@ int main(int argc, char *argv[])
 
             if (nearest != cend(boxes))
             {
-                pairs.insert({.boxID1 = v.id, .boxID2 = nearest->id, .distance = distSquared(v, *nearest)});
+                pairs.insert({.boxA = v, .boxB = *nearest, .distance = distSquared(v, *nearest)});
             }
         }
         return pairs;
@@ -106,27 +111,27 @@ int main(int argc, char *argv[])
     printf("Connections by closest distance:\n");
     for (const auto &conn : pairsByDistance)
     {
-        printf("Box %zu <--> Box %zu : Dist^2 = %.2f\n", conn.boxID1, conn.boxID2, conn.distance);
+        printf("Box %zu <--> Box %zu : Dist^2 = %.2f\n", conn.boxA.id, conn.boxB.id, conn.distance);
     }
 
     auto circuitFromConnections = [](const set<BoxConnection> &connections)
     {
         vector<size_t> circuit;
-        circuit.push_back(connections.begin()->boxID1);
+        circuit.push_back(connections.begin()->boxA.id);
 
         for (const auto &conn : connections)
         {
-            if (find(circuit.begin(), circuit.end(), conn.boxID1) != circuit.end())
+            if (find(circuit.begin(), circuit.end(), conn.boxA.id) != circuit.end())
             {
                 // Found a candidate to connect
-                printf("Pushing box %zu to circuit\n", conn.boxID2);
-                circuit.push_back(conn.boxID2);
+                printf("Pushing box %s to circuit\n", conn.boxB.toString().c_str());
+                circuit.push_back(conn.boxB.id);
             }
-            else if (find(circuit.begin(), circuit.end(), conn.boxID2) != circuit.end())
+            else if (find(circuit.begin(), circuit.end(), conn.boxB.id) != circuit.end())
             {
                 // Found a candidate to connect
-                printf("Pushing box %zu to circuit\n", conn.boxID1);
-                circuit.push_back(conn.boxID1);
+                printf("Pushing box %s to circuit\n", conn.boxA.toString().c_str());
+                circuit.push_back(conn.boxA.id);
             }
         }
         return circuit;
@@ -134,11 +139,12 @@ int main(int argc, char *argv[])
 
     vector<size_t> circuit = circuitFromConnections(pairsByDistance);
 
-    printf("Circuit order:\n");
-    for (const auto &cid : circuit)
-    {
-        printf("Box %zu\n", cid);
-    }
+    printf("Circuit size: %zu\n", circuit.size());
+    // printf("Circuit order:\n");
+    // for (const auto &cid : circuit)
+    // {
+    //     printf("Box %zu\n", cid);
+    // }
 
     // Remove all ids in circuit from boxPositions
     for (const auto &cid : circuit)
@@ -161,8 +167,11 @@ int main(int argc, char *argv[])
     printf("Connections by closest distance:\n");
     for (const auto &conn : pairsByDistance)
     {
-        printf("Box %zu <--> Box %zu : Dist^2 = %.2f\n", conn.boxID1, conn.boxID2, conn.distance);
+        printf("Box %zu <--> Box %zu : Dist^2 = %.2f\n", conn.boxA.id, conn.boxB.id, conn.distance);
     }
+
+    circuit = circuitFromConnections(pairsByDistance);
+    printf("Circuit size: %zu\n", circuit.size());
 
     return 0;
 }
