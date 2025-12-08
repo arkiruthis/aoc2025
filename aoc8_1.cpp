@@ -15,6 +15,13 @@ typedef struct V3D
     bool connected = false;
 } V3D;
 
+typedef struct BoxConnection
+{
+    size_t boxID1;
+    size_t boxID2;
+    float distance;
+} BoxConnection;
+
 // We don't need the ACTUAL distance here, just relative
 float distSquared(const V3D &a, const V3D &b)
 {
@@ -36,6 +43,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    // Read in our vertices
     string line;
     size_t idx = 0;
     while (getline(in_file, line))
@@ -57,9 +65,10 @@ int main(int argc, char *argv[])
     }
     in_file.close();
 
+    // Create a container of sorted pairs by lowest distance
     float minDist = INFINITY;
     size_t closest_i = 0, closest_j = 0;
-    vector<std::pair<size_t, size_t>> closestPairs;
+    vector<BoxConnection> dists;
     for (auto i = 0; i < boxPositions.size(); ++i)
     {
         const auto &v = boxPositions[i];
@@ -73,16 +82,48 @@ int main(int argc, char *argv[])
                                        return distA < distB;
                                    });
 
-        if (nearest != end(boxPositions) && !nearest->connected)
+        if (nearest != end(boxPositions)) // && !nearest->connected)
         {
-            closestPairs.push_back({v.id, nearest->id});
+            dists.push_back({v.id, nearest->id, distSquared(v, *nearest)});
             printf("Box %zu nearest to box %zu\n", v.id, nearest->id);
-            boxPositions[i].connected = true;
-            nearest->connected = true;
         }
     }
 
-    // 
+    sort(begin(dists), end(dists), [](const auto &a, const auto &b) {
+        return a.distance < b.distance;
+    });
+
+    printf("Connections by closest distance:\n");
+    for (const auto &conn : dists)
+    {
+        printf("Box %zu <--> Box %zu : Dist^2 = %.2f\n", conn.boxID1, conn.boxID2, conn.distance);
+    }
+
+    vector<V3D> circuit;
+    circuit.push_back(boxPositions[dists[0].boxID1]);
+    circuit.push_back(boxPositions[dists[0].boxID2]);
+
+    for (auto &p: dists)
+    {
+        auto id2 = p.boxID2;
+
+        bool found = false;
+        for (const auto &v : circuit)
+        {
+            if (v.id == id2)
+            {
+                found = true;
+                circuit.push_back(boxPositions[id2]);
+                break;
+            }
+        }
+    }
+
+    printf("Final Circuit Order:\n");
+    for (const auto &v : circuit)
+    {
+        printf("Box %zu : (%.2f, %.2f, %.2f)\n", v.id, v.x, v.y, v.z);
+    }
 
 
     return 0;
