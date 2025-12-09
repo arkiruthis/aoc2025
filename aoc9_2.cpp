@@ -135,12 +135,12 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 
         if (rightTurn && (abs(area) > largestArea))
         {
-            printf("VALID rect, area = %lld\n", abs(area));
+            // printf("VALID rect, area = %lld\n", abs(area));
 
             // Attempt to disqualify if any point in our list is INSIDE this rect
             Rect r = { minV2D(p1, p3), maxV2D(p1, p3) };
-            printf(
-                "Rect from (%lld, %lld) to (%lld, %lld)\n", r.topLeft.x, r.topLeft.y, r.bottomRight.x, r.bottomRight.y);
+            // printf(
+            //     "Rect from (%lld, %lld) to (%lld, %lld)\n", r.topLeft.x, r.topLeft.y, r.bottomRight.x, r.bottomRight.y);
 
             bool invalidated = false;
             for (size_t j = 0; j < tileCoords.size(); ++j)
@@ -150,7 +150,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
                     const auto &pt = tileCoords[j];
                     if (isPointInRect(pt, r))
                     {
-                        printf("======> Point (%lld, %lld) is inside rect, invalidating\n", pt.x, pt.y);
+                        // printf("======> Point (%lld, %lld) is inside rect, invalidating\n", pt.x, pt.y);
                         invalidated = true;
                         break;
                     }
@@ -160,6 +160,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
             if (!invalidated)
             {
                 largestArea = abs(area);
+                printf("======> VALID rect, area = %lld\n", largestArea);
             }
         }
         else
