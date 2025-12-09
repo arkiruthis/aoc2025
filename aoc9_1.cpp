@@ -37,7 +37,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     ifstream in_file;
     vector<pair<int64_t, int64_t>> tileCoords;
 
-    in_file.open("assets/aoc9_example.txt");
+    in_file.open("assets/aoc9.txt");
     if (!in_file.good())
     {
         printf("Unable to read input file.");
@@ -83,10 +83,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
         }
     }
 
-    for (const auto &ts : tileMatrix)
-    {
-        ts.print();
-    }
+    // Smallest
+    tileMatrix.begin()->print();
+    // Biggest
+    std::prev(tileMatrix.end())->print();
 
     return 0;
 }
