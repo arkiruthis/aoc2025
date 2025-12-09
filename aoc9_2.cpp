@@ -4,46 +4,24 @@
 #include <set>
 #include <string>
 #include <vector>
+#include <cassert>
 
 using namespace std;
 
-using TileCoord = pair<int64_t, int64_t>;
-
-struct Rect
+typedef struct V2D
 {
-    size_t minX, minY, maxX, maxY;
-
-    bool intersects(const Rect &other) const
-    {
-        // They can touch edges not be considered intersecting
-        const bool outside = maxX <= other.minX || other.maxX <= minX || maxY <= other.minY || other.maxY <= minY;
-        return !outside;
-    }
-
-    bool contains_corner(const Rect &other) const
-    {
-        return (other.minX >= minX && other.minX <= maxX && other.minY >= minY && other.minY <= maxY) ||
-               (other.maxX >= minX && other.maxX <= maxX && other.minY >= minY && other.minY <= maxY) ||
-               (other.minX >= minX && other.minX <= maxX && other.maxY >= minY && other.maxY <= maxY) ||
-               (other.maxX >= minX && other.maxX <= maxX && other.maxY >= minY && other.maxY <= maxY);
-    }
-};
+    int64_t x;
+    int64_t y;
+} V2D;
 
 class TileSet
 {
 public:
-    TileSet(size_t id1, size_t id2, size_t area, TileCoord t1, TileCoord t2)
+    TileSet(size_t id1, size_t id2, size_t area)
         : t1ID(id1)
         , t2ID(id2)
         , maxArea(area)
     {
-        bounds.minX = static_cast<size_t>(min(t1.first, t2.first));
-        bounds.minY = static_cast<size_t>(min(t1.second, t2.second));
-        bounds.maxX = static_cast<size_t>(max(t1.first, t2.first));
-        bounds.maxY = static_cast<size_t>(max(t1.second, t2.second));
-
-        t1Coord = t1;
-        t2Coord = t2;
     }
 
     bool operator<(const TileSet &other) const { return maxArea < other.maxArea; }
@@ -54,31 +32,17 @@ public:
     }
 
     // void print() const { printf("%zu, %zu, size: %zu\n", t1ID, t2ID, maxArea); }
-    void print() const
-    {
-        printf(
-            "Tile IDs: %zu, %zu | Area: %zu | Bounds: (%zu, %zu) to (%zu, %zu)\n",
-            t1ID,
-            t2ID,
-            maxArea,
-            t1Coord.first,
-            t1Coord.second,
-            t2Coord.first,
-            t2Coord.second);
-    }
+    void print() const { printf("Tile IDs: %zu, %zu | Area: %zu\n", t1ID, t2ID, maxArea); }
 
     size_t t1ID;
     size_t t2ID;
     size_t maxArea;
-    Rect bounds;
-    TileCoord t1Coord;
-    TileCoord t2Coord;
 };
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 {
     ifstream in_file;
-    vector<TileCoord> tileCoords;
+    vector<V2D> tileCoords;
 
     in_file.open("assets/aoc9_example.txt");
     if (!in_file.good())
@@ -102,49 +66,62 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
     }
     in_file.close();
 
-    set<TileSet> tileMatrix;
+    int64_t largestArea = 0;
+
+    // According to the example, these points are linked and wind in a clockwise manner.
     for (size_t i = 0; i < tileCoords.size(); ++i)
     {
-        for (size_t j = 0; j < tileCoords.size(); ++j)
-        {
-            if (i != j)
-            {
-                const auto &t1 = tileCoords[i];
-                const auto &t2 = tileCoords[j];
+        const auto &p1 = tileCoords[i];
+        const auto &p2 = tileCoords[(i + 1) % tileCoords.size()];
+        const auto &p3 = tileCoords[(i + 2) % tileCoords.size()];
+        printf("Line from (%lld, %lld) to (%lld, %lld) to (%lld, %lld)\n", p1.x, p1.y, p2.x, p2.y, p3.x, p3.y);
 
-                if (t1.first <= t2.first && t1.second <= t2.second)
-                {
-                    // Valid tile
-                    const auto w      = t2.first - t1.first + 1LL;
-                    const auto h      = t2.second - t1.second + 1LL;
-                    const size_t area = static_cast<size_t>(w * h);
-                    tileMatrix.insert({ i, j, area, tileCoords[i], tileCoords[j] });
-                }
-            }
+        int64_t dx     = 0;
+        int64_t dy     = 0;
+        bool rightTurn = false;
+
+        if (p1.y == p2.y)
+        {
+            // Horizontal
+            dx = p2.x - p1.x;
+            assert(p2.y != p3.y);
+
+            // Next one assumed to be vertical
+            dy = p3.y - p2.y;
+
+            // A right turn is +X followed by +Y, or -X followed by -Y
+            rightTurn = (dx > 0 && dy > 0) || (dx < 0 && dy < 0);
         }
-    }
-
-    // Go through all tilesets, starting from the largest area, and find the first
-    // that does not intersect with any other tileset.
-    for (auto it = tileMatrix.rbegin(); it != tileMatrix.rend(); ++it)
-    {
-        bool intersects = false;
-        for (auto it2 = tileMatrix.rbegin(); it2 != tileMatrix.rend(); ++it2)
+        else if (p1.x == p2.x)
         {
-            if (it != it2 && it->bounds.contains_corner(it2->bounds))
-            {
-                printf("Aww dang... we intersected...\n");
-                it->print();
-                it2->print();
-                intersects = true;
-            }
+            // Vertical
+            dy = p2.y - p1.y;
+            assert(p2.x != p3.x);
+
+            // Next one assumed to be vertical
+            dx = p3.x - p2.x;
+
+            // A right turn is +Y followed by -X, or -Y followed by +X
+            rightTurn = (dy > 0 && dx < 0) || (dy < 0 && dx > 0);
+        }
+        else
+        {
+            assert("Non aligned coordinates discovered");
         }
 
-        if (!intersects)
+        auto area = (abs(dx) + 1) * (abs(dy) + 1); // If this is positive, we calculated in a right turn corner
+
+        if (rightTurn) //  && (abs(area) > largestArea))
         {
-            printf("Largest non-intersecting tile set:\n");
-            it->print();
-            break;
+            largestArea = abs(area);
+
+            printf("VALID rect, area = %lld\n", largestArea);
+
+            // Attempt to disqualify if any point thus far is INSIDE this rect
+        }
+        else
+        {
+            printf("invalid rect\n");
         }
     }
 
