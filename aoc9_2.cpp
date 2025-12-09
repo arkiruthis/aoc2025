@@ -14,6 +14,28 @@ typedef struct V2D
     int64_t y;
 } V2D;
 
+typedef struct Rect
+{
+    V2D topLeft;
+    V2D bottomRight;
+} Rect;
+
+V2D minV2D(const V2D &a, const V2D &b)
+{
+    return { min(a.x, b.x), min(a.y, b.y) };
+}
+
+V2D maxV2D(const V2D &a, const V2D &b)
+{
+    return { max(a.x, b.x), max(a.y, b.y) };
+}
+
+bool isPointInRect(const V2D &pt, const Rect &r)
+{
+    // We will allow points on the edge to be considered outside
+    return (pt.x > r.topLeft.x && pt.x < r.bottomRight.x && pt.y > r.topLeft.y && pt.y < r.bottomRight.y);
+}
+
 class TileSet
 {
 public:
@@ -111,19 +133,42 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char *argv[])
 
         auto area = (abs(dx) + 1) * (abs(dy) + 1); // If this is positive, we calculated in a right turn corner
 
-        if (rightTurn) //  && (abs(area) > largestArea))
+        if (rightTurn && (abs(area) > largestArea))
         {
-            largestArea = abs(area);
+            printf("VALID rect, area = %lld\n", abs(area));
 
-            printf("VALID rect, area = %lld\n", largestArea);
+            // Attempt to disqualify if any point in our list is INSIDE this rect
+            Rect r = { minV2D(p1, p3), maxV2D(p1, p3) };
+            printf(
+                "Rect from (%lld, %lld) to (%lld, %lld)\n", r.topLeft.x, r.topLeft.y, r.bottomRight.x, r.bottomRight.y);
 
-            // Attempt to disqualify if any point thus far is INSIDE this rect
+            bool invalidated = false;
+            for (size_t j = 0; j < tileCoords.size(); ++j)
+            {
+                if (j != i && j != (i + 1) % tileCoords.size() && j != (i + 2) % tileCoords.size())
+                {
+                    const auto &pt = tileCoords[j];
+                    if (isPointInRect(pt, r))
+                    {
+                        printf("======> Point (%lld, %lld) is inside rect, invalidating\n", pt.x, pt.y);
+                        invalidated = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!invalidated)
+            {
+                largestArea = abs(area);
+            }
         }
         else
         {
             printf("invalid rect\n");
         }
     }
+
+    printf("Largest valid area: %lld\n", largestArea);
 
     return 0;
 }
