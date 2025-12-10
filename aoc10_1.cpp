@@ -73,16 +73,11 @@ public:
                     {
                         minButtonsRequired = attempts;
                         resolved = true;
-                        printf("Success after %d attemps! Best so far.\n", attempts);
+                        printf("Success after %d attempts! Best so far.\n", attempts);
                     }
-                    // else
-                    // {
-                    //     printf("Success, but %d attemps was too long.\n", attempts);
-                    // }
                     break;
                 }
             }
-            // printf("Rotating sequence...\n");
             rotate(begin(tmpButtons), begin(tmpButtons) + 1, end(tmpButtons));
         }
 
@@ -100,7 +95,7 @@ int main(int argc, char *argv[])
     vector<Machine> machines;
     size_t minButtonsSum = 0;
 
-    in_file.open("assets/aoc10_example.txt");
+    in_file.open("assets/aoc10.txt");
     if (!in_file.good())
     {
         printf("Unable to read input file.");
@@ -164,6 +159,8 @@ int main(int argc, char *argv[])
         machines[i].rotateResolve();
         if (machines[i].resolved) {
             minButtonsSum += machines[i].minButtonsRequired;
+        } else {
+            printf("!!! We didn't find a solution by rotating ;___;\n");
         }
     }
 
