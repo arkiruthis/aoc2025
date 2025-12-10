@@ -52,43 +52,38 @@ public:
     {
         // From the examples, it looks like we can solve by starting at the right index of the sequences
 
-        const auto maxRotations = buttonSequences.size();
-        auto tmpButtons         = buttonSequences;
-        minButtonsRequired      = maxRotations; // Assuming theory about sequential buttons is correct
-        resolved                = false;
-        // printf("Starting with initial sequence...\n");
+        auto tmpButtons           = buttonSequences;
+        minButtonsRequired        = numeric_limits<uint16_t>::max();
+        resolved                  = false;
+        size_t currentPermutation = 0;
 
-        for (int i = 0; i < maxRotations; ++i)
+        sort(begin(tmpButtons), end(tmpButtons));
+
+        do
         {
-            for (size_t skip = 0; skip < 256; ++skip)
+            auto attempts = 0;
+            indicatorBits = 0;
+            for (const auto &bitSeq : tmpButtons)
             {
-                auto attempts = 0;
-                indicatorBits = 0;
-                for (const auto &bitSeq : tmpButtons)
+                pushButtonSequence(bitSeq);
+                ++attempts;
+                if (indicatorBits == desiredIndicatorBits)
                 {
-                    if ((1 << i) & skip)
+                    if (attempts < minButtonsRequired)
                     {
-                        continue;
-                    }
+                        minButtonsRequired = attempts;
+                        resolved           = true;
 
-                    pushButtonSequence(bitSeq);
-                    // printSequenceBits(indicatorBits, true);
-                    ++attempts;
-                    if (indicatorBits == desiredIndicatorBits)
-                    {
-                        if (attempts < minButtonsRequired)
-                        {
-                            minButtonsRequired = attempts;
-                            resolved           = true;
-
-                            printf("Success after %d attempts! Best so far.\n", attempts);
-                        }
-                        break;
+                        printf(
+                            "Success after %d attempts! Best so far in permutation %zu.\n",
+                            attempts,
+                            currentPermutation);
                     }
+                    break;
                 }
             }
-            rotate(begin(tmpButtons), begin(tmpButtons) + 1, end(tmpButtons));
-        }
+            ++currentPermutation;
+        } while (next_permutation(begin(tmpButtons), end(tmpButtons)));
 
         if (resolved)
         {
@@ -165,10 +160,14 @@ int main(int argc, char *argv[])
 
     size_t failRate = 0;
 
-    // Let's experiment
+    // Let's brute force this with as many processors as we can spare :D
     for (auto i = 0; i < machines.size(); ++i)
     {
         machines[i].rotateResolve();
+    }
+
+    for (auto i = 0; i < machines.size(); ++i)
+    {
         if (machines[i].resolved)
         {
             minButtonsSum += machines[i].minButtonsRequired;
@@ -177,6 +176,12 @@ int main(int argc, char *argv[])
         {
             printf("!!! We didn't find a solution by rotating ;___;\n");
             failRate++;
+            printSequenceBits(machines[i].desiredIndicatorBits, true);
+            for (const auto &s : machines[i].buttonSequences)
+            {
+                printf("--> ");
+                printSequenceBits(s, true);
+            }
         }
     }
 
