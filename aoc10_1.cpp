@@ -3,6 +3,9 @@
 #include <fstream>
 #include <string>
 #include <cassert>
+#include <algorithm>
+#include <limits>
+#include <execution>
 
 using namespace std;
 
@@ -160,11 +163,16 @@ int main(int argc, char *argv[])
 
     size_t failRate = 0;
 
+#ifdef _WIN32
     // Let's brute force this with as many processors as we can spare :D
+    for_each(execution::par, machines.begin(), machines.end(), [](Machine &machine) { machine.rotateResolve(); });
+#else
+    // Clang sucks and I can't be bothered installing openmp just for this
     for (auto i = 0; i < machines.size(); ++i)
     {
         machines[i].rotateResolve();
     }
+#endif
 
     for (auto i = 0; i < machines.size(); ++i)
     {
