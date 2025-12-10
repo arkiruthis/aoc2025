@@ -33,7 +33,7 @@ public:
     uint16_t indicatorBits        = 0;
     uint16_t desiredIndicatorBits = 0;
     ButtonSequences buttonSequences;
-    bool resolved = false;
+    bool resolved               = false;
     uint16_t minButtonsRequired = 0;
 
     void indicatorStatus()
@@ -54,34 +54,44 @@ public:
 
         const auto maxRotations = buttonSequences.size();
         auto tmpButtons         = buttonSequences;
-        minButtonsRequired        = maxRotations; // Assuming theory about sequential buttons is correct
-        resolved = false;
+        minButtonsRequired      = maxRotations; // Assuming theory about sequential buttons is correct
+        resolved                = false;
+        // printf("Starting with initial sequence...\n");
 
-        printf("Starting with initial sequence...\n");
         for (int i = 0; i < maxRotations; ++i)
         {
-            indicatorBits = 0;
-            auto attempts = 0;
-            for (const auto &bitSeq : tmpButtons)
+            for (size_t skip = 0; skip < 256; ++skip)
             {
-                pushButtonSequence(bitSeq);
-                // printSequenceBits(indicatorBits, true);
-                ++attempts;
-                if (indicatorBits == desiredIndicatorBits)
+                auto attempts = 0;
+                indicatorBits = 0;
+                for (const auto &bitSeq : tmpButtons)
                 {
-                    if (attempts < minButtonsRequired)
+                    if ((1 << i) & skip)
                     {
-                        minButtonsRequired = attempts;
-                        resolved = true;
-                        printf("Success after %d attempts! Best so far.\n", attempts);
+                        continue;
                     }
-                    break;
+
+                    pushButtonSequence(bitSeq);
+                    // printSequenceBits(indicatorBits, true);
+                    ++attempts;
+                    if (indicatorBits == desiredIndicatorBits)
+                    {
+                        if (attempts < minButtonsRequired)
+                        {
+                            minButtonsRequired = attempts;
+                            resolved           = true;
+
+                            printf("Success after %d attempts! Best so far.\n", attempts);
+                        }
+                        break;
+                    }
                 }
             }
             rotate(begin(tmpButtons), begin(tmpButtons) + 1, end(tmpButtons));
         }
 
-        if (resolved) {
+        if (resolved)
+        {
             printf("===> Solution found with minimum %hu button presses.\n", minButtonsRequired);
         }
     }
@@ -153,20 +163,27 @@ int main(int argc, char *argv[])
     }
     in_file.close();
 
+    size_t failRate = 0;
+
     // Let's experiment
     for (auto i = 0; i < machines.size(); ++i)
     {
         machines[i].rotateResolve();
-        if (machines[i].resolved) {
+        if (machines[i].resolved)
+        {
             minButtonsSum += machines[i].minButtonsRequired;
-        } else {
+        }
+        else
+        {
             printf("!!! We didn't find a solution by rotating ;___;\n");
+            failRate++;
         }
     }
 
     printf("---------------------------------------\n");
     printf("Total Min Buttons Required: %zu\n", minButtonsSum);
     printf("---------------------------------------\n");
+    printf("Total fail rate %zu\n", failRate);
 
     return 0;
 }
