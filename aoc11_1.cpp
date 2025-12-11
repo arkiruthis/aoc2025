@@ -9,7 +9,7 @@ using namespace std;
 
 typedef struct Node
 {
-    string id; // These should be small so benefit from string usage
+    string id; // These should be small so benefit from string optimizations
     vector<Node *> connections;
 } Node;
 
@@ -56,7 +56,7 @@ int main(int argc, char *argv[])
     vector<string> data;
     vector<Node *> nodes;
 
-    in_file.open("assets/aoc11_example.txt");
+    in_file.open("assets/aoc11.txt");
     if (!in_file.good())
     {
         printf("Unable to read input file.");
