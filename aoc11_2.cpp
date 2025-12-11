@@ -2,10 +2,13 @@
 #include <vector>
 #include <fstream>
 #include <string>
+#include <unordered_set>
+#include <map>
 
 using namespace std;
 
 // Day 11 feels like a node-based problem if ever I saw one.
+// This graph has cycles, which is a bit spicey!!!
 
 typedef struct Node
 {
@@ -28,31 +31,55 @@ Node *findOrCreateNode(vector<Node *> &nodes, const string &id)
     return new_node;
 }
 
-size_t recurseCountOut(Node *root, std::pair<bool, bool> dacAndFft = { false, false })
+size_t recurseCountOut(
+    Node *root,
+    bool passedDAC,
+    bool passedFFT,
+    unordered_set<string> &visited,
+    map<string, size_t> memo[4])
 {
-    if (!root)
+    // Bail on null or already visited in this path
+    if (!root || visited.count(root->id) > 0)
     {
         return 0;
     }
 
+    // Update flags
     if (root->id == "dac")
     {
-        dacAndFft.first = true;
+        passedDAC = true;
     }
     else if (root->id == "fft")
     {
-        dacAndFft.second = true;
+        passedFFT = true;
     }
-    else if (root->id == "out" && dacAndFft.first && dacAndFft.second)
+    else if (root->id == "out")
     {
-        return 1;
+        // Check if we reached out with both flags
+        return (passedDAC && passedFFT) ? 1 : 0;
     }
+
+    // Check memo (encode flags as 0-3)
+    int state = (passedDAC ? 2 : 0) + (passedFFT ? 1 : 0);
+    if (memo[state].count(root->id) > 0)
+    {
+        return memo[state][root->id];
+    }
+
+    // Mark as visited for this path
+    visited.insert(root->id);
 
     size_t total = 0;
     for (auto conn : root->connections)
     {
-        total += recurseCountOut(conn, dacAndFft);
+        total += recurseCountOut(conn, passedDAC, passedFFT, visited, memo);
     }
+
+    // Backtrack - allow this node to be visited by other paths
+    visited.erase(root->id);
+
+    // Memoize
+    memo[state][root->id] = total;
 
     return total;
 }
@@ -64,7 +91,7 @@ int main(int argc, char *argv[])
     vector<string> data;
     vector<Node *> nodes;
 
-    in_file.open("assets/aoc11_2_example.txt");
+    in_file.open("assets/aoc11.txt");
     if (!in_file.good())
     {
         printf("Unable to read input file.");
@@ -111,27 +138,28 @@ int main(int argc, char *argv[])
     }
 
     // For demonstration, print out the nodes and their connections
-    for (const auto node : nodes)
-    {
-        printf("Node %s connections: ", node->id.c_str());
-        for (const auto conn : node->connections)
-        {
-            printf("%s ", conn->id.c_str());
-        }
-        printf("\n");
-    }
+    // for (const auto node : nodes)
+    // {
+    //     printf("Node %s connections: ", node->id.c_str());
+    //     for (const auto conn : node->connections)
+    //     {
+    //         printf("%s ", conn->id.c_str());
+    //     }
+    //     printf("\n");
+    // }
 
-    root             = findOrCreateNode(nodes, "svr");
-    size_t out_count = recurseCountOut(root);
+    root = findOrCreateNode(nodes, "svr");
+    unordered_set<string> visited;
+    map<string, size_t> memo[4]; // One map per flag combination
+    size_t out_count = recurseCountOut(root, false, false, visited, memo);
     printf("--------------------------\n");
-    printf("Total 'out' connections from 'svr' to 'out' that pass through dac and fft: %zu\n", out_count);
+    printf("Total paths from 'svr' to 'out' passing through dac and fft: %zu\n", out_count);
 
     // Cleanup
     for (auto node : nodes)
     {
         delete node;
     }
-    delete root;
 
     return 0;
 }
