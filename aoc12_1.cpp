@@ -7,48 +7,73 @@
 
 using namespace std;
 
+const size_t MAX_CONFIGURATIONS = 8;
+
+typedef struct MAT33
+{
+    uint8_t m[3][3];
+
+    void flip()
+    {
+        std::swap(m[0][0], m[0][2]);
+        std::swap(m[1][0], m[1][2]);
+        std::swap(m[2][0], m[2][2]);
+    }
+
+    void rotateCCW()
+    {
+        uint8_t temp[3][3];
+
+        for (size_t r = 0; r < 3; r++)
+        {
+            for (size_t c = 0; c < 3; c++)
+            {
+                temp[2 - c][r] = m[r][c];
+            }
+        }
+
+        memcpy(m, temp, sizeof(m));
+    }
+
+} MAT33;
+
 // Day 12 - Use bitmasks and see if we can just brute force shape placement.
 // I think we can rotate, flip, rotate, flip?
 class Shape
 {
 public:
-    uint8_t original[3][3];
-    uint8_t mask[3][3];
-    uint8_t temp[3][3];
+    MAT33 original;
+    vector<MAT33> configurations;
 
-    void flip()
+    void generateConfigurations()
     {
-        std::swap(mask[0][0], mask[0][2]);
-        std::swap(mask[1][0], mask[1][2]);
-        std::swap(mask[2][0], mask[2][2]);
-    }
-
-    void rotateCCW()
-    {
-        for (size_t r = 0; r < 3; r++)
+        for (int i = 0; i < 4; ++i)
         {
-            for (size_t c = 0; c < 3; c++)
-            {
-                temp[2 - c][r] = mask[r][c];
-            }
+            configurations.push_back(original);
+            original.flip();
+            configurations.push_back(original);
+            original.flip(); // flip back again
+            original.rotateCCW();
         }
 
-        memcpy(mask, temp, sizeof(mask));
+        assert(configurations.size() == MAX_CONFIGURATIONS);
     }
 
     void print()
     {
-        for (size_t r = 0; r < 3; r++)
+        for (auto &conf : configurations)
         {
-            for (size_t c = 0; c < 3; c++)
+            for (size_t r = 0; r < 3; r++)
             {
-                printf("%c", mask[r][c] ? '#' : '.');
+                for (size_t c = 0; c < 3; c++)
+                {
+                    printf("%c", conf.m[r][c] ? '#' : '.');
+                }
+                printf("\n");
             }
-            printf("\n");
+            printf("---------\n");
         }
     }
-
-    void reset() { memcpy(mask, original, sizeof(mask)); }
 };
 
 class Grid
@@ -70,7 +95,7 @@ public:
         clear();
     }
 
-    bool canPlaceShape(const Shape &shape, int x, int y)
+    bool canPlaceShape(const MAT33 &shape, int x, int y)
     {
         assert(x >= 0 && x + 3 <= W);
         assert(y >= 0 && y + 3 <= H);
@@ -81,7 +106,7 @@ public:
         {
             for (size_t c = 0; c < 3; c++)
             {
-                if (shape.mask[r][c])
+                if (shape.m[r][c])
                 {
                     if (data[index(x + c, y + r)] != 0)
                     {
@@ -93,7 +118,7 @@ public:
         return true;
     }
 
-    void placeShape(const Shape &shape, int x, int y, uint8_t c)
+    void placeShape(const MAT33 &shape, int x, int y, uint8_t c)
     {
         assert(x >= 0 && x + 3 <= W);
         assert(y >= 0 && y + 3 <= H);
@@ -104,7 +129,7 @@ public:
         {
             for (size_t col = 0; col < 3; col++)
             {
-                if (shape.mask[row][col])
+                if (shape.m[row][col])
                 {
                     data[index(x + col, y + row)] = c;
                 }
@@ -136,65 +161,65 @@ public:
 
     void attempToSolve(vector<Shape> &shapes)
     {
-        // Try to fit all shapes into the grid according to shape_counts
-        vector<size_t> placed_counts(shapes.size(), 0);
-
-        for (size_t s = 0; s < shapes.size(); s++)
+        vector<size_t> dump;
+        // Let's just dump all the desired shape indices into a vector for now
+        for (int i = 0; i < shape_counts.size(); ++i)
         {
-            Shape &shape = shapes[s];
-            size_t count = shape_counts[s];
-
-            // Try all rotations/flips
-            for (size_t rot = 0; rot < 4; rot++)
+            for (int j = 0; j < shape_counts[i]; ++j)
             {
-                for (size_t flip = 0; flip < 2; flip++)
+                dump.push_back(i);
+            }
+        }
+
+        size_t success_count = 0;
+
+        vector<size_t> configs;
+        for (int i = 0; i < MAX_CONFIGURATIONS; ++i)
+        {
+            configs.push_back(i);
+        }
+
+        do
+        {
+            clear();
+            success_count = 0;
+
+            for (auto s : dump)
+            {
+                do
                 {
-                    // Try to place 'count' number of this shape
-                    for (size_t placed = 0; placed < count; placed++)
+                    for (auto conf : configs)
                     {
-                        bool placed_this_shape = false;
-                        for (size_t y = 0; y <= H - 3; y++)
+                        // printf("Attempting %d at conf %d\n", s, i);
+                        auto &mask = shapes[s].configurations[conf];
+                        for (size_t y = 0; y <= H - 3; ++y)
                         {
-                            for (size_t x = 0; x <= W - 3; x++)
+                            for (size_t x = 0; x <= W - 3; ++x)
                             {
-                                if (canPlaceShape(shape, x, y))
+                                if (canPlaceShape(mask, x, y))
                                 {
-                                    placeShape(shape, x, y, (uint8_t)(s + 1));
-                                    placed_this_shape = true;
-                                    placed_counts[s]++;
-                                    goto next_shape_placement; // Break out of nested loops
+                                    // printf("Success at %zu,%zu!\n", x, y);
+                                    placeShape(mask, x, y, 1 + conf);
+                                    ++success_count;
+                                    goto break_out;
                                 }
                             }
                         }
-                    next_shape_placement:
-                        if (!placed_this_shape)
-                        {
-                            // Could not place this shape in this orientation
-                            break;
-                        }
                     }
-                    shape.flip();
-                }
-                shape.rotateCCW();
-            }
-        }
+                } while (next_permutation(begin(configs), end(configs)));
 
-        // Check if all shapes were placed successfully
-        bool success = true;
-        for (size_t s = 0; s < shapes.size(); s++)
-        {
-            if (placed_counts[s] != shape_counts[s])
-            {
-                printf("Failed to place shape %zu: placed %zu, needed %zu\n", 
-                       s, placed_counts[s], shape_counts[s]);
-                success = false;
+            break_out:
             }
-        }
-        
-        if (!success)
-        {
-            printf("Solution incomplete!\n");
-        }
+
+            if (success_count >= dump.size())
+            {
+                printf("WOOOHOOOOO!!!!\n");
+                break;
+            }
+
+        } while (next_permutation(begin(dump), end(dump)));
+
+        printf("Sucess %zu vs count of %zu\n", success_count, dump.size());
     }
 };
 
@@ -232,8 +257,7 @@ int main(int argc, char *argv[])
             {
                 char ch = line[c];
                 assert(ch == '#' || ch == '.');
-                shape.original[r][c] = (ch == '#') ? 1 : 0;
-                shape.mask[r][c]     = shape.original[r][c];
+                shape.original.m[r][c] = (ch == '#') ? 1 : 0;
             }
         }
         shapes.push_back(shape);
@@ -283,18 +307,8 @@ int main(int argc, char *argv[])
     {
         Shape &shape = shapes[s];
         printf("Shape %zu:\n", s);
-        // for (size_t rot = 0; rot < 4; rot++)
-        // {
-        //     for (size_t flip = 0; flip < 2; flip++)
-        //     {
+        shape.generateConfigurations();
         shape.print();
-        printf("\n");
-        shape.flip();
-        //     }
-        //     shape.rotateCCW();
-        // }
-
-        printf("--------\n");
     }
 
     // Print all grids
